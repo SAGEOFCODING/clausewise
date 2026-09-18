@@ -6,8 +6,8 @@ dotenv.config();
 const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
-  PORT: z.coerce.number().int().positive().default(4174),
-  MAX_UPLOAD_MB: z.coerce.number().int().positive().max(25).default(6)
+  PORT: z.preprocess((val) => (val === "" || val === undefined ? 4174 : val), z.coerce.number().int().positive().default(4174)),
+  MAX_UPLOAD_MB: z.preprocess((val) => (val === "" || val === undefined ? 6 : val), z.coerce.number().int().positive().max(25).default(6))
 });
 
 export const config = envSchema.parse(process.env);
