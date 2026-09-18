@@ -9,4 +9,11 @@ export const config = {
   maxDuration: 60,
 };
 
-export default app;
+export default function handler(req: any, res: any) {
+  // Preserve original request URL if rewritten by Vercel edge
+  const rawPath = req.headers["x-matched-path"] || req.headers["x-vercel-original-url"];
+  if (typeof rawPath === "string" && rawPath.startsWith("/api") && req.url !== rawPath) {
+    req.url = rawPath;
+  }
+  return app(req, res);
+}
