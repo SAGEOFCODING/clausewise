@@ -20,6 +20,24 @@ interface QAEntry {
   answer: GroundedAnswer;
 }
 
+async function safeFetchJson<T = any>(response: Response): Promise<T> {
+  const text = await response.text();
+  let payload: any = {};
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = { error: { message: text.length < 200 ? text : `Server error (${response.status})` } };
+    }
+  } else {
+    payload = { error: { message: `Server returned empty response (${response.status || 500})` } };
+  }
+  if (!response.ok) {
+    throw new Error(payload.error?.message ?? `Request failed with status ${response.status}`);
+  }
+  return payload;
+}
+
 /* ================================================================
    App — Root component
    ================================================================ */
@@ -69,8 +87,7 @@ function App() {
     form.append("document", file);
     try {
       const response = await fetch(`${API}/analyze`, { method: "POST", body: form });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message ?? "Document analysis failed.");
+      const payload = await safeFetchJson(response);
       setAnalysis(payload.analysis);
       setDocumentId(payload.documentId);
       setChecked({});
@@ -92,8 +109,7 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type })
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message ?? "Sample loading failed.");
+      const payload = await safeFetchJson(response);
       setAnalysis(payload.analysis);
       setDocumentId(payload.documentId);
       setChecked({});
@@ -117,8 +133,7 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question })
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message ?? "Question failed.");
+      const payload = await safeFetchJson(response);
       setQaHistory((prev) => [{ question, answer: payload.answer }, ...prev]);
       setQuestion("");
     } catch (err) {
@@ -136,8 +151,7 @@ function App() {
     setError("");
     try {
       const response = await fetch(`${API}/compare`, { method: "POST", body: data });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message ?? "Comparison failed.");
+      const payload = await safeFetchJson(response);
       setComparison(payload.comparison);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Comparison failed.");
@@ -156,8 +170,7 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ documentIdA, documentIdB })
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error?.message ?? "Comparison failed.");
+      const payload = await safeFetchJson(response);
       setComparison(payload.comparison);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Comparison failed.");
@@ -572,7 +585,7 @@ function ComparePanel({
     setLoadingStored(true);
     try {
       const res = await fetch("/api/documents");
-      const data = await res.json();
+      const data = await safeFetchJson(res);
       if (Array.isArray(data.documents)) {
         setStoredDocs(data.documents);
         if (data.documents.length >= 2) {

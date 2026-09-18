@@ -69,7 +69,8 @@ export class AIService {
   private async completeJson<T extends z.ZodTypeAny>(schema: T, prompt: string): Promise<z.infer<T>> {
     if (!this.client) throw new Error("AI client is not configured.");
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60_000);
+    const timeoutMs = process.env.VERCEL ? 15_000 : 45_000;
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await this.client.chat.completions.create(
         {

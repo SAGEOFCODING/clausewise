@@ -6,6 +6,9 @@ const allowedExtensions = new Set([".pdf", ".docx", ".txt"]);
 const allowedMimeTypes = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "application/x-zip-compressed",
+  "application/octet-stream",
   "text/plain"
 ]);
 
