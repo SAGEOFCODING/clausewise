@@ -7,8 +7,9 @@ import { chunkDocument, createDocumentId } from "../document/chunk";
 import { extractText } from "../document/extractText";
 import { userError } from "../errors";
 import { retrieveRelevantChunks } from "../retrieval/retrieve";
+import { sampleDocuments } from "../sampleDocuments";
 import { validateUpload } from "../security/fileValidation";
-import { getDocument, saveDocument } from "../storage/documentStore";
+import { getDocument, listDocuments, saveDocument } from "../storage/documentStore";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -17,6 +18,12 @@ const upload = multer({
 
 export const documentsRouter = express.Router();
 
+/* List all stored documents */
+documentsRouter.get("/", (_req, res) => {
+  res.json({ documents: listDocuments() });
+});
+
+/* Analyze a single uploaded document */
 documentsRouter.post("/analyze", upload.single("document"), async (req, res, next) => {
   try {
     const { safeName, ext } = validateUpload(req.file);
@@ -44,6 +51,32 @@ documentsRouter.post("/analyze", upload.single("document"), async (req, res, nex
   }
 });
 
+/* Upload and analyze a built-in sample document */
+documentsRouter.post("/sample", express.json(), async (req, res, next) => {
+  try {
+    const body = z.object({ type: z.enum(["employment", "rental"]) }).parse(req.body);
+    const sample = sampleDocuments[body.type];
+    const id = createDocumentId();
+    const chunks = chunkDocument(id, sample.content);
+    if (!chunks.length) throw userError(500, "Sample document could not be chunked.", "SAMPLE_ERROR");
+    const analysis = await aiService.analyzeDocument(id, sample.fileName, chunks);
+    const document = saveDocument({
+      id,
+      fileName: sample.fileName,
+      mimeType: "text/plain",
+      size: Buffer.byteLength(sample.content),
+      text: sample.content,
+      chunks,
+      analysis,
+      createdAt: analysis.createdAt
+    });
+    res.json({ documentId: document.id, analysis: document.analysis });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/* Ask a question about an uploaded document */
 documentsRouter.post("/:documentId/question", async (req, res, next) => {
   try {
     const params = z.object({ documentId: z.string().uuid() }).parse(req.params);
@@ -58,6 +91,7 @@ documentsRouter.post("/:documentId/question", async (req, res, next) => {
   }
 });
 
+/* Compare two uploaded files */
 documentsRouter.post("/compare", upload.fields([{ name: "documentA", maxCount: 1 }, { name: "documentB", maxCount: 1 }]), async (req, res, next) => {
   try {
     const files = req.files as Record<string, Express.Multer.File[]>;
@@ -81,6 +115,22 @@ documentsRouter.post("/compare", upload.fields([{ name: "documentA", maxCount: 1
   }
 });
 
+/* Compare two previously stored documents by ID */
+documentsRouter.post("/compare-stored", express.json(), async (req, res, next) => {
+  try {
+    const body = z.object({ documentIdA: z.string().uuid(), documentIdB: z.string().uuid() }).parse(req.body);
+    const docA = getDocument(body.documentIdA);
+    const docB = getDocument(body.documentIdB);
+    if (!docA) throw userError(404, "Document A is no longer available.", "DOCUMENT_NOT_FOUND");
+    if (!docB) throw userError(404, "Document B is no longer available.", "DOCUMENT_NOT_FOUND");
+    const result = await aiService.compareDocuments(docA.chunks, docB.chunks);
+    res.json({ fileA: docA.fileName, fileB: docB.fileName, comparison: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/* Get a single stored document */
 documentsRouter.get("/:documentId", (req, res, next) => {
   try {
     const params = z.object({ documentId: z.string().uuid() }).parse(req.params);

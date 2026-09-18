@@ -9,3 +9,5 @@ uploads/
 *.log
 .vite/
 *.tsbuildinfo
+.agents/
+graphify-out/
