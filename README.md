@@ -213,6 +213,19 @@ npm run dev
 - **Frontend Application**: `http://localhost:5173`
 - **Backend API**: `http://127.0.0.1:4174`
 
+### 4. Deploying to Vercel
+ClauseWise is pre-configured for one-click Vercel deployment:
+- **Static Assets**: Vite builds into `dist/` and is served via Vercel's global edge network.
+- **Serverless API**: Configured in `api/index.ts` and `vercel.json` to handle all `/api/*` endpoints through serverless functions.
+
+To deploy:
+1. Import the repository in your [Vercel Dashboard](https://vercel.com/new).
+2. Framework Preset: **Vite** (detected automatically).
+3. Build Command: `npm run build` (detected automatically).
+4. Output Directory: `dist` (detected automatically).
+5. Environment Variables *(Optional)*: Add `OPENAI_API_KEY` (if omitted, the deterministic fallback engine runs automatically).
+6. Click **Deploy**.
+
 ---
 
 ## 🧪 Testing & Verification

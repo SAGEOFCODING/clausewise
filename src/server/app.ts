@@ -1,5 +1,6 @@
 import cors from "cors";
 import express from "express";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
@@ -11,20 +12,34 @@ export function createApp() {
   app.use(cors({ origin: true }));
   app.use(express.json({ limit: "80kb" }));
 
-  app.get("/api/health", (_req, res) => {
+  const healthHandler = (_req: express.Request, res: express.Response) => {
     res.json({
       ok: true,
       name: "ClauseWise API",
       disclaimer: "This tool provides legal information and document assistance, not professional legal advice."
     });
-  });
+  };
+
+  app.get("/api/health", healthHandler);
+  app.get("/health", healthHandler);
 
   app.use("/api/documents", documentsRouter);
+  app.use("/documents", documentsRouter);
 
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" && !process.env.VERCEL) {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    app.use(express.static(path.resolve(__dirname, "../client")));
-    app.get("*", (_req, res) => res.sendFile(path.resolve(__dirname, "../client/index.html")));
+    const distClient = path.resolve(__dirname, "../client");
+    const distRoot = path.resolve(__dirname, "../../dist");
+    const staticDir = fs.existsSync(distClient) ? distClient : distRoot;
+    app.use(express.static(staticDir));
+    app.get("*", (_req, res) => {
+      const htmlFile = path.resolve(staticDir, "index.html");
+      if (fs.existsSync(htmlFile)) {
+        res.sendFile(htmlFile);
+      } else {
+        res.status(404).send("Not found");
+      }
+    });
   }
 
   app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
