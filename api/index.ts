@@ -1,6 +1,4 @@
-import { createApp } from "../src/server/app";
-
-const app = createApp();
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 export const config = {
   api: {
@@ -9,11 +7,28 @@ export const config = {
   maxDuration: 60,
 };
 
-export default function handler(req: any, res: any) {
-  // Preserve original request URL if rewritten by Vercel edge
-  const rawPath = req.headers["x-matched-path"] || req.headers["x-vercel-original-url"];
-  if (typeof rawPath === "string" && rawPath.startsWith("/api") && req.url !== rawPath) {
-    req.url = rawPath;
+let cachedApp: any = null;
+
+export default async function handler(req: IncomingMessage & { url?: string }, res: ServerResponse) {
+  try {
+    const rawPath = (req.headers["x-matched-path"] || req.headers["x-vercel-original-url"] || req.url) as string;
+    if (typeof rawPath === "string" && rawPath.startsWith("/api")) {
+      req.url = rawPath;
+    }
+    if (!cachedApp) {
+      const { createApp } = await import("../src/server/app");
+      cachedApp = createApp();
+    }
+    return cachedApp(req, res);
+  } catch (err: any) {
+    console.error("Vercel Function Error:", err);
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({
+      error: {
+        message: err?.message || "Serverless Function Error",
+        stack: err?.stack
+      }
+    }));
   }
-  return app(req, res);
 }

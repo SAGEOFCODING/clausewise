@@ -1,5 +1,4 @@
 import mammoth from "mammoth";
-import pdfParse from "pdf-parse";
 import { userError } from "../errors";
 
 export interface ExtractedText {
@@ -13,6 +12,8 @@ export async function extractText(buffer: Buffer, ext: string): Promise<Extracte
       return { text: buffer.toString("utf8") };
     }
     if (ext === ".pdf") {
+      const pdfModule = await import("pdf-parse");
+      const pdfParse = (pdfModule as any).default ?? pdfModule;
       const parsed = await pdfParse(buffer);
       return { text: parsed.text, pageCount: parsed.numpages };
     }
