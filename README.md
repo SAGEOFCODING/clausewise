@@ -2,12 +2,17 @@
 > **Intelligent Legal Document Analysis & Consultation Assistant**
 > *Understand contracts in plain English, spot hidden risks, ask grounded questions, compare versions, and prepare for lawyer consultations.*
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-clausewise--virid.vercel.app-success?style=for-the-badge&logo=vercel)](https://clausewise-virid.vercel.app/)
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19.0-61dafb.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-6.0-646cff.svg)](https://vitejs.dev/)
 [![Express](https://img.shields.io/badge/Express-5.1-black.svg)](https://expressjs.com/)
 [![Vitest](https://img.shields.io/badge/Vitest-2.1-729B1B.svg)](https://vitest.dev/)
 [![Lenis](https://img.shields.io/badge/Lenis-1.3-orange.svg)](https://github.com/darkroomengineering/lenis)
+
+🌐 **Live Production Application:** [https://clausewise-virid.vercel.app/](https://clausewise-virid.vercel.app/)
+
 
 ---
 
