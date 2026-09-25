@@ -1,8 +1,8 @@
 // src/server/app.ts
 import cors from "cors";
 import express2 from "express";
-import fs from "node:fs";
-import path2 from "node:path";
+import fs2 from "node:fs";
+import path3 from "node:path";
 import { fileURLToPath } from "node:url";
 import { ZodError } from "zod";
 
@@ -756,15 +756,86 @@ function validateSignature(buffer, ext) {
 }
 
 // src/server/storage/documentStore.ts
+import fs from "node:fs";
+import os from "node:os";
+import path2 from "node:path";
+var SAMPLE_EMPLOYMENT_ID = "77777777-7777-4777-8777-777777777777";
+var SAMPLE_RENTAL_ID = "88888888-8888-4888-8888-888888888888";
 var documents = /* @__PURE__ */ new Map();
+var tmpDir = path2.join(os.tmpdir(), "clausewise-documents");
+function ensureTmpDir() {
+  try {
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+  } catch {
+  }
+}
 function saveDocument(document) {
   documents.set(document.id, document);
+  try {
+    ensureTmpDir();
+    fs.writeFileSync(path2.join(tmpDir, `${document.id}.json`), JSON.stringify(document), "utf8");
+  } catch {
+  }
   return document;
 }
+function createSampleDocument(type, customId) {
+  const sample = sampleDocuments[type];
+  const id = customId || (type === "employment" ? SAMPLE_EMPLOYMENT_ID : SAMPLE_RENTAL_ID);
+  const chunks = chunkDocument(id, sample.content);
+  const analysis = fallbackAnalyze(id, sample.fileName, chunks);
+  const doc = {
+    id,
+    fileName: sample.fileName,
+    mimeType: "text/plain",
+    size: Buffer.byteLength(sample.content),
+    text: sample.content,
+    chunks,
+    analysis,
+    createdAt: analysis.createdAt
+  };
+  return saveDocument(doc);
+}
 function getDocument(id) {
-  return documents.get(id) ?? null;
+  if (documents.has(id)) {
+    return documents.get(id);
+  }
+  try {
+    const filePath = path2.join(tmpDir, `${id}.json`);
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, "utf8"));
+      documents.set(data.id, data);
+      return data;
+    }
+  } catch {
+  }
+  if (id === SAMPLE_EMPLOYMENT_ID) {
+    return createSampleDocument("employment", SAMPLE_EMPLOYMENT_ID);
+  }
+  if (id === SAMPLE_RENTAL_ID) {
+    return createSampleDocument("rental", SAMPLE_RENTAL_ID);
+  }
+  return null;
 }
 function listDocuments() {
+  try {
+    ensureTmpDir();
+    const files = fs.readdirSync(tmpDir);
+    for (const file of files) {
+      if (file.endsWith(".json")) {
+        const id = file.replace(".json", "");
+        if (!documents.has(id)) {
+          try {
+            const data = JSON.parse(fs.readFileSync(path2.join(tmpDir, file), "utf8"));
+            documents.set(data.id, data);
+          } catch {
+          }
+        }
+      }
+    }
+  } catch {
+  }
   return Array.from(documents.values()).map((doc) => ({
     id: doc.id,
     fileName: doc.fileName,
@@ -811,8 +882,8 @@ documentsRouter.post("/analyze", upload.single("document"), async (req, res, nex
 documentsRouter.post("/sample", express.json(), async (req, res, next) => {
   try {
     const body = z3.object({ type: z3.enum(["employment", "rental"]) }).parse(req.body);
+    const id = body.type === "employment" ? SAMPLE_EMPLOYMENT_ID : SAMPLE_RENTAL_ID;
     const sample = sampleDocuments[body.type];
-    const id = createDocumentId();
     const chunks = chunkDocument(id, sample.content);
     if (!chunks.length) throw userError(500, "Sample document could not be chunked.", "SAMPLE_ERROR");
     const analysis = await aiService.analyzeDocument(id, sample.fileName, chunks);
@@ -959,14 +1030,14 @@ function createApp() {
   app2.use("/api/documents", documentsRouter);
   app2.use("/documents", documentsRouter);
   if (process.env.NODE_ENV === "production" && !process.env.VERCEL) {
-    const __dirname = path2.dirname(fileURLToPath(import.meta.url));
-    const distClient = path2.resolve(__dirname, "../client");
-    const distRoot = path2.resolve(__dirname, "../../dist");
-    const staticDir = fs.existsSync(distClient) ? distClient : distRoot;
+    const __dirname = path3.dirname(fileURLToPath(import.meta.url));
+    const distClient = path3.resolve(__dirname, "../client");
+    const distRoot = path3.resolve(__dirname, "../../dist");
+    const staticDir = fs2.existsSync(distClient) ? distClient : distRoot;
     app2.use(express2.static(staticDir));
     app2.get("*", (_req, res) => {
-      const htmlFile = path2.resolve(staticDir, "index.html");
-      if (fs.existsSync(htmlFile)) {
+      const htmlFile = path3.resolve(staticDir, "index.html");
+      if (fs2.existsSync(htmlFile)) {
         res.sendFile(htmlFile);
       } else {
         res.status(404).send("Not found");

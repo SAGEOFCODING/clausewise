@@ -9,7 +9,7 @@ import { userError } from "../errors";
 import { retrieveRelevantChunks } from "../retrieval/retrieve";
 import { sampleDocuments } from "../sampleDocuments";
 import { validateUpload } from "../security/fileValidation";
-import { getDocument, listDocuments, saveDocument } from "../storage/documentStore";
+import { getDocument, listDocuments, saveDocument, SAMPLE_EMPLOYMENT_ID, SAMPLE_RENTAL_ID } from "../storage/documentStore";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -55,8 +55,8 @@ documentsRouter.post("/analyze", upload.single("document"), async (req, res, nex
 documentsRouter.post("/sample", express.json(), async (req, res, next) => {
   try {
     const body = z.object({ type: z.enum(["employment", "rental"]) }).parse(req.body);
+    const id = body.type === "employment" ? SAMPLE_EMPLOYMENT_ID : SAMPLE_RENTAL_ID;
     const sample = sampleDocuments[body.type];
-    const id = createDocumentId();
     const chunks = chunkDocument(id, sample.content);
     if (!chunks.length) throw userError(500, "Sample document could not be chunked.", "SAMPLE_ERROR");
     const analysis = await aiService.analyzeDocument(id, sample.fileName, chunks);
@@ -75,6 +75,7 @@ documentsRouter.post("/sample", express.json(), async (req, res, next) => {
     next(error);
   }
 });
+
 
 /* Ask a question about an uploaded document (supports both singular and plural) */
 documentsRouter.post(["/:documentId/question", "/:documentId/questions"], express.json(), async (req, res, next) => {
