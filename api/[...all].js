@@ -874,7 +874,7 @@ documentsRouter.post("/analyze", upload.single("document"), async (req, res, nex
       analysis,
       createdAt: analysis.createdAt
     });
-    res.json({ documentId: document.id, analysis: document.analysis });
+    res.json({ documentId: document.id, analysis: document.analysis, chunks: document.chunks });
   } catch (error) {
     next(error);
   }
@@ -897,7 +897,7 @@ documentsRouter.post("/sample", express.json(), async (req, res, next) => {
       analysis,
       createdAt: analysis.createdAt
     });
-    res.json({ documentId: document.id, analysis: document.analysis });
+    res.json({ documentId: document.id, analysis: document.analysis, chunks: document.chunks });
   } catch (error) {
     next(error);
   }
@@ -905,11 +905,35 @@ documentsRouter.post("/sample", express.json(), async (req, res, next) => {
 documentsRouter.post(["/:documentId/question", "/:documentId/questions"], express.json(), async (req, res, next) => {
   try {
     const params = z3.object({ documentId: z3.string().uuid() }).parse(req.params);
-    const body = z3.object({ question: z3.string().trim().min(3).max(600) }).parse(req.body);
-    const document = getDocument(params.documentId);
-    if (!document) throw userError(404, "That document is no longer available. Please upload it again.", "DOCUMENT_NOT_FOUND");
-    const relevant = retrieveRelevantChunks(document.chunks, body.question, 6);
-    const answer = await aiService.answerQuestion(body.question, relevant.length ? relevant : document.chunks.slice(0, 4));
+    const body = z3.object({
+      question: z3.string().trim().min(3).max(600),
+      chunks: z3.array(z3.object({
+        id: z3.string(),
+        documentId: z3.string(),
+        text: z3.string(),
+        page: z3.number().optional(),
+        section: z3.string().optional()
+      })).optional()
+    }).parse(req.body);
+    let document = getDocument(params.documentId);
+    let chunks = document ? document.chunks : body.chunks || [];
+    if (!chunks.length) {
+      throw userError(404, "That document is no longer available. Please upload it again.", "DOCUMENT_NOT_FOUND");
+    }
+    if (!document && body.chunks && body.chunks.length) {
+      saveDocument({
+        id: params.documentId,
+        fileName: "uploaded-document.txt",
+        mimeType: "text/plain",
+        size: body.chunks.reduce((acc, c) => acc + c.text.length, 0),
+        text: body.chunks.map((c) => c.text).join("\n"),
+        chunks: body.chunks,
+        analysis: fallbackAnalyze(params.documentId, "uploaded-document.txt", body.chunks),
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+    const relevant = retrieveRelevantChunks(chunks, body.question, 6);
+    const answer = await aiService.answerQuestion(body.question, relevant.length ? relevant : chunks.slice(0, 4));
     res.json({ answer, citations: answer.evidence });
   } catch (error) {
     next(error);

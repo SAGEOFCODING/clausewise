@@ -68,6 +68,7 @@ function App() {
     };
   }, []);
   const [documentId, setDocumentId] = React.useState<string | null>(null);
+  const [chunks, setChunks] = React.useState<any[]>([]);
   const [uploadState, setUploadState] = React.useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = React.useState("");
   const [question, setQuestion] = React.useState("");
@@ -90,6 +91,7 @@ function App() {
       const payload = await safeFetchJson(response);
       setAnalysis(payload.analysis);
       setDocumentId(payload.documentId);
+      setChunks(payload.chunks || []);
       setChecked({});
       setQaHistory([]);
       setActiveTab("overview");
@@ -112,6 +114,7 @@ function App() {
       const payload = await safeFetchJson(response);
       setAnalysis(payload.analysis);
       setDocumentId(payload.documentId);
+      setChunks(payload.chunks || []);
       setChecked({});
       setQaHistory([]);
       setActiveTab("overview");
@@ -131,7 +134,7 @@ function App() {
       const response = await fetch(`${API}/${documentId}/question`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question })
+        body: JSON.stringify({ question, chunks })
       });
       const payload = await safeFetchJson(response);
       setQaHistory((prev) => [{ question, answer: payload.answer }, ...prev]);
