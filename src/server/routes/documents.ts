@@ -76,8 +76,8 @@ documentsRouter.post("/sample", express.json(), async (req, res, next) => {
   }
 });
 
-/* Ask a question about an uploaded document */
-documentsRouter.post("/:documentId/question", async (req, res, next) => {
+/* Ask a question about an uploaded document (supports both singular and plural) */
+documentsRouter.post(["/:documentId/question", "/:documentId/questions"], express.json(), async (req, res, next) => {
   try {
     const params = z.object({ documentId: z.string().uuid() }).parse(req.params);
     const body = z.object({ question: z.string().trim().min(3).max(600) }).parse(req.body);
@@ -85,7 +85,41 @@ documentsRouter.post("/:documentId/question", async (req, res, next) => {
     if (!document) throw userError(404, "That document is no longer available. Please upload it again.", "DOCUMENT_NOT_FOUND");
     const relevant = retrieveRelevantChunks(document.chunks, body.question, 6);
     const answer = await aiService.answerQuestion(body.question, relevant.length ? relevant : document.chunks.slice(0, 4));
-    res.json({ answer });
+    res.json({ answer, citations: answer.evidence });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/* Simplify a legal clause */
+documentsRouter.post(["/:documentId/simplify", "/simplify"], express.json(), async (req, res, next) => {
+  try {
+    const body = z.object({ clauseText: z.string().trim().min(5) }).parse(req.body);
+    const result = await aiService.simplifyClause(body.clauseText);
+    res.json({
+      simplifiedText: result.plainEnglish,
+      practicalMeaning: result.practicalMeaning,
+      keyPoints: result.whatToCheck,
+      professionalReview: result.professionalReview
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/* Get lawyer preparation sheet for a document */
+documentsRouter.post("/:documentId/prep", express.json(), (req, res, next) => {
+  try {
+    const params = z.object({ documentId: z.string().uuid() }).parse(req.params);
+    const document = getDocument(params.documentId);
+    if (!document) throw userError(404, "That document is no longer available. Please upload it again.", "DOCUMENT_NOT_FOUND");
+    res.json({
+      documentSummary: document.analysis.lawyerPrep.documentSummary,
+      importantClauses: document.analysis.lawyerPrep.importantClauses,
+      questionsForLawyer: document.analysis.lawyerPrep.questionsToAsk,
+      informationToBring: document.analysis.lawyerPrep.informationToBring,
+      redFlagsToClarify: document.analysis.lawyerPrep.areasRequiringClarification
+    });
   } catch (error) {
     next(error);
   }
@@ -118,13 +152,28 @@ documentsRouter.post("/compare", upload.fields([{ name: "documentA", maxCount: 1
 /* Compare two previously stored documents by ID */
 documentsRouter.post("/compare-stored", express.json(), async (req, res, next) => {
   try {
-    const body = z.object({ documentIdA: z.string().uuid(), documentIdB: z.string().uuid() }).parse(req.body);
+    const rawA = req.body.documentIdA || req.body.docId1;
+    const rawB = req.body.documentIdB || req.body.docId2;
+    const body = z.object({ documentIdA: z.string().uuid(), documentIdB: z.string().uuid() }).parse({
+      documentIdA: rawA,
+      documentIdB: rawB
+    });
     const docA = getDocument(body.documentIdA);
     const docB = getDocument(body.documentIdB);
     if (!docA) throw userError(404, "Document A is no longer available.", "DOCUMENT_NOT_FOUND");
     if (!docB) throw userError(404, "Document B is no longer available.", "DOCUMENT_NOT_FOUND");
     const result = await aiService.compareDocuments(docA.chunks, docB.chunks);
-    res.json({ fileA: docA.fileName, fileB: docB.fileName, comparison: result });
+    res.json({
+      fileA: docA.fileName,
+      fileB: docB.fileName,
+      comparison: result,
+      summary: result.summary,
+      addedClauses: result.addedClauses,
+      removedClauses: result.removedClauses,
+      modifiedClauses: result.modifiedClauses,
+      attentionAreas: result.attentionAreas
+    });
+
   } catch (error) {
     next(error);
   }
