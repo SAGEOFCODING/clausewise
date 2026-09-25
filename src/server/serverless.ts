@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createApp } from "../src/server/app";
+import { createApp } from "./app";
 
 export const config = {
   api: {
@@ -19,7 +19,6 @@ export default function handler(req: IncomingMessage & { url?: string }, res: Se
         req.url = orig;
       }
     }
-
     return app(req, res);
   } catch (err: any) {
     console.error("Vercel Function Error:", err);
@@ -33,4 +32,3 @@ export default function handler(req: IncomingMessage & { url?: string }, res: Se
     }));
   }
 }
-

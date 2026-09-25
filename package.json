@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch src/server/index.ts",
-    "dev:web": "vite --host 127.0.0.1",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/build.js",
     "start": "tsx src/server/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
