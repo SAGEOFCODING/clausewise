@@ -22,6 +22,7 @@ export function createApp() {
 
   app.get("/api/health", healthHandler);
   app.get("/health", healthHandler);
+  app.get("/api", healthHandler);
 
   app.use("/api/documents", documentsRouter);
   app.use("/documents", documentsRouter);

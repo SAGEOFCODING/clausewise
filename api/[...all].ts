@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { createApp } from "../src/server/app";
 
 export const config = {
   api: {
@@ -7,19 +8,19 @@ export const config = {
   maxDuration: 60,
 };
 
-let cachedApp: any = null;
+const app = createApp();
 
-export default async function handler(req: IncomingMessage & { url?: string }, res: ServerResponse) {
+export default function handler(req: IncomingMessage & { url?: string }, res: ServerResponse) {
   try {
-    const rawPath = (req.headers["x-matched-path"] || req.headers["x-vercel-original-url"] || req.url) as string;
-    if (typeof rawPath === "string" && rawPath.startsWith("/api")) {
-      req.url = rawPath;
+    const currentUrl = req.url || "";
+    if (currentUrl === "/api" || currentUrl === "/" || !currentUrl.startsWith("/api/")) {
+      const orig = (req.headers["x-vercel-original-url"] || req.headers["x-matched-path"]) as string | undefined;
+      if (orig && orig.startsWith("/api") && orig !== "/api") {
+        req.url = orig;
+      }
     }
-    if (!cachedApp) {
-      const { createApp } = await import("../src/server/app");
-      cachedApp = createApp();
-    }
-    return cachedApp(req, res);
+
+    return app(req, res);
   } catch (err: any) {
     console.error("Vercel Function Error:", err);
     res.statusCode = 500;
@@ -27,8 +28,9 @@ export default async function handler(req: IncomingMessage & { url?: string }, r
     res.end(JSON.stringify({
       error: {
         message: err?.message || "Serverless Function Error",
-        stack: err?.stack
-      }
+        stack: err?.stack,
+      },
     }));
   }
 }
+
